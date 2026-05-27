@@ -1,0 +1,1671 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-950 text-slate-100">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DiveFit Finder - Women's Collegiate Diving Analytics</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0f9ff',
+              100: '#e0f2fe',
+              200: '#bae6fd',
+              300: '#7dd3fc',
+              400: '#38bdf8',
+              500: '#0ea5e9',
+              600: '#0284c7',
+              700: '#0369a1',
+              800: '#075985',
+              900: '#0c4a6e',
+              950: '#082f49',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- PapaParse for CSV Parsing -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+    /* Custom scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0b1329;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1e293b;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #38bdf8;
+    }
+  </style>
+</head>
+<body class="h-full flex flex-col overflow-hidden">
+
+  <!-- TOP BAR / HEADER -->
+  <header class="border-b border-slate-800 bg-slate-900 px-6 py-4 flex items-center justify-between shrink-0">
+    <div class="flex items-center gap-3">
+      <div class="bg-brand-500 text-slate-950 p-2.5 rounded-xl shadow-lg shadow-brand-500/20 flex items-center justify-center">
+        <!-- Custom Diving Icon -->
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2 12h20" />
+          <path d="M20 12c0-4.4-3.6-8-8-8S4 7.6 4 12" />
+          <path d="M12 12c0-2.2 1.8-4 4-4s4 1.8 4 4" />
+          <path d="m14 16-2-2-2 2" />
+          <path d="M12 14v6" />
+        </svg>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="text-xl font-extrabold tracking-tight text-white">DiveFit<span class="text-brand-400">Finder</span></h1>
+          <span class="bg-brand-500/10 text-brand-400 text-xs px-2.5 py-0.5 rounded-full font-semibold border border-brand-500/20">Women's Edition</span>
+        </div>
+        <p class="text-xs text-slate-400">Find where your 5-dive, 6-dive, or 11-dive scores land in collegiate conferences</p>
+      </div>
+    </div>
+
+    <!-- Data Load Badges -->
+    <div class="flex items-center gap-3">
+      <div id="normalization-indicator" class="hidden lg:flex items-center gap-1.5 bg-indigo-950/40 text-indigo-400 border border-indigo-500/20 px-3 py-1.5 rounded-lg text-xs font-semibold">
+        <i data-lucide="shield-check" class="w-4 h-4 text-indigo-400"></i>
+        <span>Smart Normalization Active (<strong id="normalized-count-text">0</strong> meets adjusted)</span>
+      </div>
+      <div id="stats-badge" class="hidden md:flex items-center gap-4 bg-slate-950 px-4 py-1.5 rounded-lg border border-slate-800 text-xs text-slate-400">
+        <div class="flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span><strong id="stat-performances" class="text-white">0</strong> Performances</span>
+        </div>
+        <div class="flex items-center gap-1.5 border-l border-slate-800 pl-4">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span><strong id="stat-colleges" class="text-white">0</strong> Colleges</span>
+        </div>
+      </div>
+      <button onclick="resetDataFiles()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-lg font-medium transition flex items-center gap-1.5">
+        <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Reload Data
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN CONTAINER (SPLIT LAYOUT) -->
+  <main class="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
+
+    <!-- DATA LOADING OVERLAY (Shown if files are missing or loading) -->
+    <div id="loading-overlay" class="absolute inset-0 bg-slate-950/95 z-50 flex flex-col items-center justify-center p-6 text-center overflow-y-auto">
+      <div class="max-w-2xl w-full bg-slate-900 border border-slate-800 p-8 rounded-2xl shadow-2xl space-y-8">
+        <div class="space-y-3">
+          <div class="mx-auto w-16 h-16 bg-brand-500/10 text-brand-400 rounded-full flex items-center justify-center mb-2">
+            <i data-lucide="database" class="w-8 h-8 animate-bounce"></i>
+          </div>
+          <h2 class="text-2xl font-bold text-white">Initialize DiveFit Database</h2>
+          <p class="text-slate-400 text-sm max-w-lg mx-auto">
+            We are looking for <code class="text-brand-400 bg-brand-950 px-1.5 py-0.5 rounded">all_cleaned.csv</code> and <code class="text-brand-400 bg-brand-950 px-1.5 py-0.5 rounded">university_info.csv</code> in your workspace. If not auto-loaded, please select or drop them below!
+          </p>
+        </div>
+
+        <!-- Progress Indicator -->
+        <div id="auto-load-status" class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2 text-left">
+          <div class="flex items-center justify-between text-xs">
+            <span class="font-medium text-slate-400">Workspace Auto-Scan Status</span>
+            <span id="scan-percentage" class="text-brand-400 font-bold">Scanning...</span>
+          </div>
+          <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+            <div id="scan-progress-bar" class="bg-brand-500 h-full w-12 transition-all duration-300"></div>
+          </div>
+          <div class="space-y-1.5 pt-2 text-xs text-slate-400">
+            <div id="status-diving-file" class="flex items-center gap-2">
+              <i data-lucide="loader" class="w-3.5 h-3.5 animate-spin text-slate-500"></i>
+              <span>Checking for diving performance data (all_cleaned.csv)...</span>
+            </div>
+            <div id="status-uni-file" class="flex items-center gap-2">
+              <i data-lucide="loader" class="w-3.5 h-3.5 animate-spin text-slate-500"></i>
+              <span>Checking for university info (university_info.csv)...</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Manual File Drops -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Diving Performances File -->
+          <div class="border-2 border-dashed border-slate-800 hover:border-brand-500/50 bg-slate-950/50 p-5 rounded-xl transition cursor-pointer relative" id="drop-zone-diving">
+            <input type="file" id="file-diving" class="absolute inset-0 opacity-0 cursor-pointer" accept=".csv" onchange="handleManualFile(this, 'diving')">
+            <div class="space-y-2 text-center pointer-events-none">
+              <div class="mx-auto w-10 h-10 bg-slate-900 rounded-lg flex items-center justify-center text-slate-400">
+                <i data-lucide="file-spreadsheet" class="w-6 h-6"></i>
+              </div>
+              <p class="text-xs font-semibold text-white">1. Athletic Data</p>
+              <p class="text-[10px] text-slate-500">Click or drag all_cleaned.csv here</p>
+              <div id="badge-diving" class="hidden text-[10px] inline-block bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full font-medium">Loaded ✔</div>
+            </div>
+          </div>
+
+          <!-- University Info File -->
+          <div class="border-2 border-dashed border-slate-800 hover:border-brand-500/50 bg-slate-950/50 p-5 rounded-xl transition cursor-pointer relative" id="drop-zone-uni">
+            <input type="file" id="file-uni" class="absolute inset-0 opacity-0 cursor-pointer" accept=".csv" onchange="handleManualFile(this, 'uni')">
+            <div class="space-y-2 text-center pointer-events-none">
+              <div class="mx-auto w-10 h-10 bg-slate-900 rounded-lg flex items-center justify-center text-slate-400">
+                <i data-lucide="school" class="w-6 h-6"></i>
+              </div>
+              <p class="text-xs font-semibold text-white">2. Academic Data</p>
+              <p class="text-[10px] text-slate-500">Click or drag university_info.csv here</p>
+              <div id="badge-uni" class="hidden text-[10px] inline-block bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full font-medium">Loaded ✔</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="pt-2">
+          <button id="btn-continue" disabled onclick="dismissOverlay()" class="w-full bg-slate-800 text-slate-500 py-3 rounded-xl font-bold transition duration-200 cursor-not-allowed">
+            Waiting for Data Files...
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- LEFT BAR: PROFILES, FILTERS, AND CONTROLS (Scrollable) -->
+    <section class="w-full lg:w-[420px] bg-slate-900 border-r border-slate-800 flex flex-col shrink-0 overflow-y-auto">
+      
+      <!-- Diver Profile Panel -->
+      <div class="p-5 border-b border-slate-800 space-y-5">
+        <div class="flex items-center justify-between">
+          <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+            <i data-lucide="user" class="w-4 h-4 text-brand-400"></i> Diver Profile
+          </h2>
+          <span class="text-[11px] text-slate-500 font-medium">Step 1 of 2</span>
+        </div>
+
+        <!-- Name & Board Choice -->
+        <div class="space-y-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 mb-1.5">Diver Name</label>
+            <input type="text" id="diver-name" value="Recruit Prospect" placeholder="Enter name..." class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-500">
+          </div>
+
+          <div class="grid grid-cols-3 gap-2">
+            <div>
+              <label class="block text-xs font-semibold text-slate-400 mb-1.5">Board</label>
+              <select id="diver-board" onchange="onBoardChange()" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-2 text-sm text-white focus:outline-none focus:border-brand-500">
+                <option value="1m">1m</option>
+                <option value="3m">3m</option>
+                <option value="Platform">Platform</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-400 mb-1.5">No. Dives</label>
+              <select id="diver-dives" onchange="onDivesChange()" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-2 text-sm text-white focus:outline-none focus:border-brand-500">
+                <option value="6">6 Dives</option>
+                <option value="11">11 Dives</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-400 mb-1.5">Total DD</label>
+              <input type="number" id="diver-dd" step="0.1" value="14.0" oninput="onProfileChange()" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-500">
+            </div>
+          </div>
+
+          <!-- Score Input (With Slider and Number input linked) -->
+          <div>
+            <div class="flex items-center justify-between mb-1.5">
+              <label class="block text-xs font-semibold text-slate-400">Total Score</label>
+              <span id="execution-rating" class="text-xs font-bold text-brand-400 bg-brand-500/10 px-2 py-0.5 rounded">Avg Judge: 0.0</span>
+            </div>
+            <div class="flex items-center gap-3">
+              <input type="range" id="diver-score-slider" min="50" max="600" value="240" step="1" oninput="syncScore(this.value, 'slider')" class="flex-1 accent-brand-500">
+              <input type="number" id="diver-score-num" value="240" min="20" max="1100" step="0.5" oninput="syncScore(this.value, 'num')" class="w-20 bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-center text-sm text-white font-bold focus:outline-none focus:border-brand-500">
+            </div>
+          </div>
+
+          <!-- Combined Score Checkbox -->
+          <div class="bg-slate-950 p-3 rounded-lg border border-slate-800/80">
+            <label class="relative flex items-start gap-2.5 cursor-pointer">
+              <input type="checkbox" id="score-is-combined" onchange="onProfileChange()" class="sr-only peer">
+              <div class="w-9 h-5 bg-slate-800 rounded-full mt-0.5 peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[4px] after:left-[2px] after:bg-slate-300 after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-500"></div>
+              <div class="flex-1">
+                <span class="text-xs text-slate-300 font-bold block leading-tight">This is a combined (Prelim + Final) score</span>
+                <span class="text-[10px] text-slate-500 leading-normal block mt-0.5">Check if this score is a cumulative sum of both rounds (e.g., 10, 12, or 22 dives total). We will normalize it to a standard single list.</span>
+              </div>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Academic Filters Panel -->
+      <div class="p-5 border-b border-slate-800 space-y-5">
+        <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+          <i data-lucide="graduation-cap" class="w-4 h-4 text-emerald-400"></i> Academic Profile
+        </h2>
+
+        <div class="space-y-4">
+          <!-- GPA slider -->
+          <div>
+            <div class="flex justify-between text-xs mb-1">
+              <span class="text-slate-400">Your GPA</span>
+              <span id="gpa-val" class="font-bold text-emerald-400">3.50</span>
+            </div>
+            <input type="range" id="academic-gpa" min="2.0" max="4.0" step="0.05" value="3.50" oninput="updateAcademicUI()" class="w-full accent-emerald-500">
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs text-slate-400 mb-1">Your SAT Score</label>
+              <input type="number" id="academic-sat" placeholder="e.g. 1300" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500" oninput="updateAcademicUI()">
+            </div>
+            <div>
+              <label class="block text-xs text-slate-400 mb-1">Your ACT Score</label>
+              <input type="number" id="academic-act" placeholder="e.g. 28" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500" oninput="updateAcademicUI()">
+            </div>
+          </div>
+
+          <!-- Boolean toggles -->
+          <div class="space-y-2 pt-2 border-t border-slate-800/50">
+            <label class="relative flex items-center gap-2.5 cursor-pointer py-1">
+              <input type="checkbox" id="academic-abet" onchange="updateAcademicUI()" class="sr-only peer">
+              <div class="w-9 h-5 bg-slate-800 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[6px] after:left-[2px] after:bg-slate-300 after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
+              <span class="text-xs text-slate-300 font-medium">Requires ABET Engineering</span>
+            </label>
+
+            <label class="relative flex items-center gap-2.5 cursor-pointer py-1">
+              <input type="checkbox" id="academic-tuition" onchange="updateAcademicUI()" class="sr-only peer">
+              <div class="w-9 h-5 bg-slate-800 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[6px] after:left-[2px] after:bg-slate-300 after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
+              <span class="text-xs text-slate-300 font-medium">Tuition Exchange Member</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick filters -->
+      <div class="p-5 space-y-4 flex-1">
+        <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+          <i data-lucide="filter" class="w-4 h-4 text-purple-400"></i> Athletic Filter
+        </h2>
+        <div class="grid grid-cols-3 gap-2">
+          <button id="div-btn-all" onclick="setDivisionFilter('All')" class="bg-brand-500 text-slate-950 font-bold px-2 py-1.5 rounded-lg text-xs transition">All</button>
+          <button id="div-btn-d1" onclick="setDivisionFilter('D1')" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-1.5 rounded-lg text-xs transition">D1</button>
+          <button id="div-btn-d3" onclick="setDivisionFilter('D3')" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-1.5 rounded-lg text-xs transition">D3</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- RIGHT BAR: LIVE ANALYTICS DASHBOARD -->
+    <section class="flex-1 flex flex-col overflow-hidden bg-slate-950">
+      
+      <!-- Top Overview Metrics Strip -->
+      <div class="grid grid-cols-2 md:grid-cols-4 border-b border-slate-800 bg-slate-900/50 shrink-0">
+        <div class="p-4 border-r border-b md:border-b-0 border-slate-800 flex flex-col">
+          <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Your Best Fit Division</span>
+          <span id="stat-best-fit-div" class="text-lg font-black text-brand-400 mt-1">D1 / D3</span>
+          <span class="text-[10px] text-slate-500">Based on score & difficulty</span>
+        </div>
+        <div class="p-4 border-r border-b md:border-b-0 border-slate-800 flex flex-col">
+          <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Top Match Conference</span>
+          <span id="stat-top-conference" class="text-lg font-black text-emerald-400 mt-1 truncate">-</span>
+          <span class="text-[10px] text-slate-500">Ideal score percentile</span>
+        </div>
+        <div class="p-4 border-r border-slate-800 flex flex-col">
+          <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Average Judge Execution</span>
+          <span id="stat-avg-execution" class="text-lg font-black text-purple-400 mt-1">5.71</span>
+          <span class="text-[10px] text-slate-500">0.0 to 10.0 scale</span>
+        </div>
+        <div class="p-4 flex flex-col">
+          <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Matched Universities</span>
+          <span id="stat-matched-count" class="text-lg font-black text-amber-400 mt-1">0 / 0</span>
+          <span class="text-[10px] text-slate-500">Matches academics & athletics</span>
+        </div>
+      </div>
+
+      <!-- Inner Content Scrollable Container -->
+      <div class="flex-1 overflow-y-auto p-6 space-y-6">
+
+        <!-- Informational banner for score scaling -->
+        <div id="normalization-alert" class="hidden bg-indigo-950/20 border border-indigo-800/80 p-4 rounded-xl flex items-start gap-3">
+          <div class="p-1.5 bg-indigo-500/20 text-indigo-400 rounded-lg">
+            <i data-lucide="info" class="w-5 h-5"></i>
+          </div>
+          <div class="text-xs space-y-1">
+            <h5 class="font-bold text-white">Championship Combined Scores Auto-Detected</h5>
+            <p class="text-slate-300">
+              Collegiate database meets that compiled preliminary and final rounds together (e.g., total 10, 12, or 22 dive totals) have been normalized to a single-round equivalent. Your input has been correctly calibrated for a true, standardized competitive fit.
+            </p>
+          </div>
+        </div>
+
+        <!-- First Row: Conference Fit Breakdown & Scatter Matrix -->
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+          
+          <!-- Conference Fit Breakdown -->
+          <div class="xl:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col space-y-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="font-bold text-white text-base">Conference Fit Analysis</h3>
+                <p class="text-xs text-slate-400">Click on any conference row to explore member schools and metrics</p>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-xs bg-slate-800 text-slate-300 px-2.5 py-1 rounded-full border border-slate-700 font-semibold" id="table-board-count">1m - 6 Dives</span>
+              </div>
+            </div>
+
+            <div class="flex-1 overflow-x-auto">
+              <table class="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr class="border-b border-slate-800 text-slate-400 font-bold">
+                    <th class="pb-3 pr-2">Conference</th>
+                    <th class="pb-3 px-2">Div</th>
+                    <th class="pb-3 px-2 text-right">Max Score</th>
+                    <th class="pb-3 px-2 text-right">Median Score</th>
+                    <th class="pb-3 px-2 text-right">Avg DD</th>
+                    <th class="pb-3 px-2 text-right">Your Percentile</th>
+                    <th class="pb-3 pl-3 text-center">Fit Level</th>
+                  </tr>
+                </thead>
+                <tbody id="conference-table-body" class="divide-y divide-slate-800/50">
+                  <!-- JS generated rows -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Scatter Quadrant Plot (Execution vs DD) -->
+          <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col space-y-4">
+            <div>
+              <h3 class="font-bold text-white text-base">Performance Quadrant</h3>
+              <p class="text-xs text-slate-400">Total list DD vs Average judge score</p>
+            </div>
+            <div class="flex-1 relative min-h-[220px] flex items-center justify-center">
+              <canvas id="quadrant-chart" class="w-full h-full max-h-[260px]"></canvas>
+            </div>
+            <div class="grid grid-cols-2 gap-2 text-[10px] text-slate-400 border-t border-slate-800/50 pt-2">
+              <div class="flex items-center gap-1"><span class="w-2.5 h-2.5 bg-brand-500 rounded-full inline-block"></span> You</div>
+              <div class="flex items-center gap-1"><span class="w-2.5 h-2.5 bg-slate-600 rounded-full inline-block"></span> Competitors</div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Second Row: Matched College Cards -->
+        <div class="space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h3 class="font-bold text-white text-lg flex items-center gap-2">
+                <i data-lucide="school" class="w-5 h-5 text-amber-400"></i> Matching College Opportunities
+              </h3>
+              <p class="text-xs text-slate-400">Colleges that fit both your academic scores and competitive diving level</p>
+            </div>
+            <!-- Toggle for Academics match vs All athletic match -->
+            <div class="flex items-center gap-1.5 bg-slate-900 p-1 rounded-lg border border-slate-800 text-xs">
+              <button id="toggle-filter-both" onclick="setMatchFilter('both')" class="px-3 py-1 rounded-md font-semibold bg-brand-500 text-slate-950 transition">Academic & Athletic</button>
+              <button id="toggle-filter-all" onclick="setMatchFilter('all')" class="px-3 py-1 rounded-md font-semibold text-slate-400 hover:text-white transition">Athletic Only</button>
+            </div>
+          </div>
+
+          <div id="school-match-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+            <!-- School Cards populated by JS -->
+          </div>
+          
+          <div id="school-empty-state" class="hidden text-center py-12 bg-slate-900 border border-dashed border-slate-800 rounded-2xl">
+            <div class="mx-auto w-12 h-12 text-slate-500 mb-2">
+              <i data-lucide="alert-circle" class="w-12 h-12"></i>
+            </div>
+            <h4 class="text-white font-bold">No Exact College Matches Found</h4>
+            <p class="text-slate-400 text-xs mt-1">Try broadening your academic filters or lowering your match threshold.</p>
+          </div>
+        </div>
+
+        <!-- Third Row: List Optimizer & Calculator -->
+        <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          
+          <!-- Optimizer Module -->
+          <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-5">
+            <div class="flex items-center gap-2">
+              <div class="p-1.5 bg-brand-500/10 text-brand-400 rounded-lg">
+                <i data-lucide="calculator" class="w-5 h-5"></i>
+              </div>
+              <div>
+                <h3 class="font-bold text-white text-base">Score Simulator & Optimizer</h3>
+                <p class="text-xs text-slate-400">How would increases in difficulty or execution affect your rank?</p>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+              <!-- Target DD -->
+              <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
+                <div class="flex justify-between items-center text-xs">
+                  <span class="text-slate-400">Target List DD</span>
+                  <span id="target-dd-val" class="text-brand-400 font-bold text-sm">11.8</span>
+                </div>
+                <input type="range" id="opt-dd" min="6" max="25" step="0.2" value="11.8" oninput="runOptimizer()" class="w-full accent-brand-500">
+                <p id="opt-dd-subtext" class="text-[10px] text-slate-500">Typical Platform (5 dives): 11.0 - 13.5</p>
+              </div>
+
+              <!-- Target Judge Score -->
+              <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
+                <div class="flex justify-between items-center text-xs">
+                  <span class="text-slate-400">Target Judge Score (Avg)</span>
+                  <span id="target-judge-val" class="text-brand-400 font-bold text-sm">6.5</span>
+                </div>
+                <input type="range" id="opt-judge" min="3" max="10" step="0.1" value="6.5" oninput="runOptimizer()" class="w-full accent-brand-500">
+                <p class="text-[10px] text-slate-500">Diving score scale: 6.0 = Satisfactory, 7.5 = Good</p>
+              </div>
+            </div>
+
+            <!-- Estimated Output -->
+            <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 flex items-center justify-between">
+              <div>
+                <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Estimated Total Score</span>
+                <span id="opt-result-score" class="text-3xl font-black text-white">230.1</span>
+              </div>
+              <div class="text-right">
+                <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Est. Percentile in Selected Board</span>
+                <span id="opt-result-percentile" class="text-3xl font-black text-emerald-400">92%</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Diving Rules & DD Guide Quick Info -->
+          <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col justify-between space-y-4">
+            <div>
+              <h3 class="font-bold text-white text-base">Collegiate Diving Quick Reference</h3>
+              <p class="text-xs text-slate-400">Benchmarks for women's collegiate recruits</p>
+            </div>
+
+            <div class="space-y-3 text-xs">
+              <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+                <span class="text-slate-400 font-medium">Division 1 Qualifiers (Zone Standards)</span>
+                <span class="text-white font-bold text-right">1m (6 Dives): 265.00 | Platform (5 Dives): 225.00</span>
+              </div>
+              <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+                <span class="text-slate-400 font-medium">Division 3 NCAA Qualifying Score</span>
+                <span class="text-white font-bold text-right">1m (11 Dives): 395.00 | 3m (11 Dives): 410.00</span>
+              </div>
+              <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+                <span class="text-slate-400 font-medium">Estimated College Roster Average DD</span>
+                <span class="text-white font-semibold text-right">5 Dives: 11.0 - 13.5 | 6 Dives: 13.5 - 15.5</span>
+              </div>
+              <div class="flex justify-between items-center">
+                <span class="text-slate-400 font-medium">Tuition Exchange Network</span>
+                <span class="text-emerald-400 font-semibold text-right">Over 650 member colleges offering free tuition reciprocal benefits</span>
+              </div>
+            </div>
+
+            <div class="bg-slate-950 p-3.5 rounded-xl border border-slate-800 text-[11px] text-slate-400 leading-relaxed">
+              <strong>Recruiting Pro-Tip:</strong> College coaches care equally about consistency and difficulty. If you have an average judge score over <strong>6.5</strong> but a lower list DD, focuses should be placed on upgrading your voluntary/optional dives!
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- COLLAPSIBLE MODAL FOR DETAILED CONFERENCE BREAKDOWN -->
+  <div id="modal-conference-details" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-slate-800 max-w-2xl w-full rounded-2xl shadow-2xl p-6 space-y-4 flex flex-col max-h-[85vh]">
+      <div class="flex justify-between items-start shrink-0">
+        <div>
+          <h4 id="conf-modal-title" class="text-xl font-bold text-white">Conference Name</h4>
+          <p id="conf-modal-subtitle" class="text-xs text-brand-400 font-semibold uppercase tracking-wide">Division • Universities Found</p>
+        </div>
+        <button onclick="closeConfModal()" class="text-slate-400 hover:text-white p-1 rounded-lg bg-slate-800 hover:bg-slate-700 transition">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Quick Benchmark Stats Cards -->
+      <div class="grid grid-cols-3 gap-3 text-xs shrink-0">
+        <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 text-center">
+          <span class="text-slate-500 block font-bold mb-1">Your Rank</span>
+          <span id="conf-modal-user-rank" class="text-lg font-black text-brand-400">-</span>
+        </div>
+        <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 text-center">
+          <span class="text-slate-500 block font-bold mb-1">Conference Max</span>
+          <span id="conf-modal-max-score" class="text-lg font-black text-emerald-400">-</span>
+        </div>
+        <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 text-center">
+          <span class="text-slate-500 block font-bold mb-1">Conference Median</span>
+          <span id="conf-modal-med-score" class="text-lg font-black text-amber-400">-</span>
+        </div>
+      </div>
+
+      <!-- List of Universities -->
+      <div class="flex-1 overflow-y-auto space-y-3 pr-1">
+        <h5 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Member Universities in Dataset</h5>
+        <div id="conf-modal-schools-list" class="space-y-2">
+          <!-- Dynamically populated rows -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- COLLAPSIBLE MODAL FOR DETAILED UNIVERSITY COMPARISON -->
+  <div id="modal-uni-details" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-slate-800 max-w-lg w-full rounded-2xl shadow-2xl p-6 space-y-4">
+      <div class="flex justify-between items-start">
+        <div>
+          <h4 id="modal-title" class="text-xl font-bold text-white">University Name</h4>
+          <p id="modal-conference" class="text-xs text-brand-400 font-semibold uppercase tracking-wide"></p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="modal-back-btn" onclick="backToConference()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1.5 rounded-lg font-medium transition hidden items-center gap-1">
+            <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i> Back to Conf
+          </button>
+          <button onclick="closeUniModal()" class="text-slate-400 hover:text-white p-1 rounded-lg bg-slate-800 hover:bg-slate-700 transition">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-4 text-xs">
+        <div class="bg-slate-950 p-3 rounded-lg border border-slate-800">
+          <span class="text-slate-500 block font-bold mb-1">Athletic Profile</span>
+          <p id="modal-ath-div" class="text-white font-medium"></p>
+          <p id="modal-ath-stats" class="text-brand-400 font-bold mt-1"></p>
+        </div>
+        <div class="bg-slate-950 p-3 rounded-lg border border-slate-800">
+          <span class="text-slate-500 block font-bold mb-1">Academic Stats</span>
+          <p id="modal-gpa" class="text-white font-medium"></p>
+          <p id="modal-sat-act" class="text-white font-medium"></p>
+        </div>
+      </div>
+
+      <div class="space-y-2 text-xs">
+        <div class="flex justify-between py-1.5 border-b border-slate-800">
+          <span class="text-slate-400">ABET Accredited Engineering?</span>
+          <span id="modal-abet" class="font-bold"></span>
+        </div>
+        <div class="flex justify-between py-1.5 border-b border-slate-800">
+          <span class="text-slate-400">Tuition Exchange Member?</span>
+          <span id="modal-tuition" class="font-bold"></span>
+        </div>
+        <div class="flex justify-between py-1.5">
+          <span class="text-slate-400">Website Address</span>
+          <a id="modal-web" href="#" target="_blank" class="text-brand-400 hover:underline font-semibold flex items-center gap-1">Visit Site <i data-lucide="external-link" class="w-3 h-3"></i></a>
+        </div>
+      </div>
+
+      <div class="bg-brand-500/10 p-3.5 rounded-lg border border-brand-500/20 text-[11px] text-slate-300">
+        <strong>Fit Summary:</strong> <span id="modal-fit-explanation"></span>
+      </div>
+    </div>
+  </div>
+
+  <footer class="border-t border-slate-800 bg-slate-950 py-2.5 px-6 text-center text-[10px] text-slate-500 shrink-0">
+    Designed for high school recruits and parents exploring college diving options. Uses parsed statistics from real 2026 collegiate meets.
+  </footer>
+
+  <!-- MAIN SCRIPT CONTROLLING APP LOGIC -->
+  <script>
+    // Global Datasets
+    let divingPerformances = [];
+    let universityInfo = [];
+    let conferencesData = [];
+
+    // Filter and Profile States
+    let currentDivisionFilter = 'All'; // 'All', 'D1', 'D3'
+    let currentMatchFilter = 'both';  // 'both' (academic & athletic) or 'all' (athletic only)
+    let activeChartInstance = null;
+    let lastOpenedConference = null; // Track back navigation
+
+    // Initialization
+    window.onload = function() {
+      lucide.createIcons();
+      autoLoadFiles();
+    };
+
+    // Auto load files from workspace or allow manual drag-drop
+    async function autoLoadFiles() {
+      updateScanStatus('diving', 'loading', 'Loading all_cleaned.csv from workspace...');
+      updateScanStatus('uni', 'loading', 'Loading university_info.csv from workspace...');
+      setProgressBar(20);
+
+      let divingLoaded = false;
+      let uniLoaded = false;
+
+      // Try reading diving data
+      try {
+        const resDiving = await fetch('all_cleaned.csv');
+        if (resDiving.ok) {
+          const textDiving = await resDiving.text();
+          parseDivingData(textDiving);
+          divingLoaded = true;
+          updateScanStatus('diving', 'success', 'Diving data loaded successfully.');
+          setProgressBar(50);
+        } else {
+          updateScanStatus('diving', 'error', 'all_cleaned.csv not auto-found.');
+        }
+      } catch (err) {
+        updateScanStatus('diving', 'error', 'Could not locate all_cleaned.csv automatically.');
+      }
+
+      // Try reading university info
+      try {
+        const resUni = await fetch('university_info.csv');
+        if (resUni.ok) {
+          const textUni = await resUni.text();
+          parseUniversityData(textUni);
+          uniLoaded = true;
+          updateScanStatus('uni', 'success', 'University info loaded successfully.');
+          setProgressBar(90);
+        } else {
+          updateScanStatus('uni', 'error', 'university_info.csv not auto-found.');
+        }
+      } catch (err) {
+        updateScanStatus('uni', 'error', 'Could not locate university_info.csv automatically.');
+      }
+
+      if (divingLoaded && uniLoaded) {
+        setProgressBar(100);
+        setTimeout(() => {
+          dismissOverlay();
+        }, 800);
+      } else {
+        document.getElementById('scan-percentage').innerText = 'Requires Files';
+      }
+    }
+
+    function setProgressBar(pct) {
+      document.getElementById('scan-progress-bar').style.width = `${pct}%`;
+      document.getElementById('scan-percentage').innerText = `${pct}%`;
+    }
+
+    function updateScanStatus(type, status, msg) {
+      const el = document.getElementById(type === 'diving' ? 'status-diving-file' : 'status-uni-file');
+      const badge = document.getElementById(type === 'diving' ? 'badge-diving' : 'badge-uni');
+      
+      let icon = '';
+      if (status === 'success') {
+        icon = `<i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400"></i>`;
+        badge.classList.remove('hidden');
+      } else if (status === 'error') {
+        icon = `<i data-lucide="alert-circle" class="w-4 h-4 text-amber-500"></i>`;
+      } else {
+        icon = `<i data-lucide="loader" class="w-4 h-4 animate-spin text-brand-400"></i>`;
+      }
+
+      el.innerHTML = `${icon} <span class="text-xs">${msg}</span>`;
+      lucide.createIcons();
+    }
+
+    // Manual upload handling
+    function handleManualFile(input, type) {
+      const file = input.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const text = e.target.result;
+        if (type === 'diving') {
+          parseDivingData(text);
+          updateScanStatus('diving', 'success', `Loaded ${divingPerformances.length} performances manually.`);
+        } else {
+          parseUniversityData(text);
+          updateScanStatus('uni', 'success', `Loaded ${universityInfo.length} universities manually.`);
+        }
+        checkReadyState();
+      };
+      reader.readAsText(file);
+    }
+
+    function checkReadyState() {
+      if (divingPerformances.length > 0 && universityInfo.length > 0) {
+        setProgressBar(100);
+        const btn = document.getElementById('btn-continue');
+        btn.disabled = false;
+        btn.innerText = 'Ready! Continue to Dashboard';
+        btn.classList.remove('bg-slate-800', 'text-slate-500', 'cursor-not-allowed');
+        btn.classList.add('bg-brand-500', 'text-slate-950', 'hover:bg-brand-400');
+      }
+    }
+
+    function dismissOverlay() {
+      document.getElementById('loading-overlay').classList.add('hidden');
+      buildInitialAnalysis();
+    }
+
+    function resetDataFiles() {
+      document.getElementById('loading-overlay').classList.remove('hidden');
+      divingPerformances = [];
+      universityInfo = [];
+      document.getElementById('badge-diving').classList.add('hidden');
+      document.getElementById('badge-uni').classList.add('hidden');
+      setProgressBar(10);
+      autoLoadFiles();
+    }
+
+    // Parsing Logic (Equipped with dynamic Combined Score Auto-De-skewing)
+    function parseDivingData(text) {
+      Papa.parse(text, {
+        header: true,
+        skipEmptyLines: true,
+        complete: function(results) {
+          let detectedCombined = 0;
+          divingPerformances = results.data.map(row => {
+            const rawScore = parseFloat(row['Score']);
+            const rawDives = parseInt(row['Num Dives']);
+            let score = rawScore;
+            let isCombined = false;
+
+            // Detect if this is a summed prelim + final score (unusually high score for the respective dive count)
+            // Women's 5 dives in college rarely exceed 300.
+            // Women's 6 dives in college rarely exceed 360.
+            // Women's 11 dives rarely exceed 600.
+            if (rawDives === 5 && rawScore > 300) {
+              score = rawScore / 2;
+              isCombined = true;
+              detectedCombined++;
+            } else if (rawDives === 6 && rawScore > 360) {
+              score = rawScore / 2;
+              isCombined = true;
+              detectedCombined++;
+            } else if (rawDives === 11 && rawScore > 600) {
+              score = rawScore / 2;
+              isCombined = true;
+              detectedCombined++;
+            }
+
+            return {
+              meet: row['Meet Name'],
+              event: row['Event Name'],
+              board: row['Board'] ? row['Board'].trim() : '',
+              diver: row['Diver Name'] ? row['Diver Name'].trim() : '',
+              team: row['Team'] ? row['Team'].trim() : '',
+              university: row['University Name'] ? row['University Name'].trim() : '',
+              division: row['Athletic Division'] ? row['Athletic Division'].trim() : '',
+              conference: row['Athletic Conference'] ? row['Athletic Conference'].trim() : '',
+              originalScore: rawScore,
+              score: score,
+              isCombined: isCombined,
+              place: parseInt(row['Place']),
+              dd: parseFloat(row['Total DD']),
+              dives: rawDives
+            };
+          }).filter(p => !isNaN(p.score) && p.board);
+          
+          document.getElementById('stat-performances').innerText = divingPerformances.length.toLocaleString();
+          
+          // Display normalization indicator if any are discovered in dataset
+          if (detectedCombined > 0) {
+            const indicator = document.getElementById('normalization-indicator');
+            indicator.classList.remove('hidden');
+            document.getElementById('normalized-count-text').innerText = detectedCombined;
+
+            // Highlight the informational banner
+            document.getElementById('normalization-alert').classList.remove('hidden');
+          }
+          checkReadyState();
+        }
+      });
+    }
+
+    function parseUniversityData(text) {
+      Papa.parse(text, {
+        header: true,
+        skipEmptyLines: true,
+        complete: function(results) {
+          universityInfo = results.data.map(row => ({
+            name: row['University Name'] ? row['University Name'].trim() : '',
+            web: row['Web Address'] ? row['Web Address'].trim() : '',
+            act: parseFloat(row['Avg. ACT']),
+            sat: parseFloat(row['Avg. SAT']),
+            gpa: parseFloat(row['Avg. GPA']),
+            abet: row['ABET Accredited Engineering?'] ? row['ABET Accredited Engineering?'].trim().toLowerCase() === 'yes' : false,
+            tuitionExchange: row['Tuition Exchange Member?'] ? row['Tuition Exchange Member?'].trim().toLowerCase().startsWith('yes') : false
+          })).filter(u => u.name);
+
+          document.getElementById('stat-colleges').innerText = universityInfo.length.toLocaleString();
+          checkReadyState();
+        }
+      });
+    }
+
+    // Dynamic Board Change Options
+    function onBoardChange() {
+      const boardSelect = document.getElementById('diver-board');
+      const divesSelect = document.getElementById('diver-dives');
+      const currentSelectedVal = divesSelect.value;
+      
+      // Clear and rebuild options based on board standard
+      divesSelect.innerHTML = '';
+      
+      if (boardSelect.value === 'Platform') {
+        const op5 = document.createElement('option');
+        op5.value = '5';
+        op5.text = '5 Dives';
+        divesSelect.appendChild(op5);
+      }
+      
+      const op6 = document.createElement('option');
+      op6.value = '6';
+      op6.text = '6 Dives';
+      divesSelect.appendChild(op6);
+
+      const op11 = document.createElement('option');
+      op11.value = '11';
+      op11.text = '11 Dives';
+      divesSelect.appendChild(op11);
+
+      // Try to re-select previous dive size if possible, otherwise default to 5 for Platform or 6 for Springboard
+      if (boardSelect.value === 'Platform') {
+        if (currentSelectedVal === '5' || currentSelectedVal === '6' || currentSelectedVal === '11') {
+          divesSelect.value = currentSelectedVal;
+        } else {
+          divesSelect.value = '5';
+        }
+      } else {
+        if (currentSelectedVal === '6' || currentSelectedVal === '11') {
+          divesSelect.value = currentSelectedVal;
+        } else {
+          divesSelect.value = '6';
+        }
+      }
+
+      onDivesChange();
+    }
+
+    function onDivesChange() {
+      const divesSelect = document.getElementById('diver-dives').value;
+      const ddInput = document.getElementById('diver-dd');
+      const scoreInput = document.getElementById('diver-score-num');
+      const sliderInput = document.getElementById('diver-score-slider');
+      const optDDInput = document.getElementById('opt-dd');
+      const optDDText = document.getElementById('opt-dd-subtext');
+
+      // Adjust defaults to match selected dive counts perfectly
+      if (divesSelect === '5') {
+        ddInput.value = '11.5';
+        scoreInput.value = '200';
+        sliderInput.value = '200';
+        optDDInput.value = '11.5';
+        optDDText.innerText = 'Typical Platform (5 dives): 11.0 - 13.5';
+      } else if (divesSelect === '6') {
+        ddInput.value = '14.0';
+        scoreInput.value = '240';
+        sliderInput.value = '240';
+        optDDInput.value = '14.0';
+        optDDText.innerText = 'Typical Springboard (6 dives): 13.5 - 15.5';
+      } else {
+        ddInput.value = '22.5';
+        scoreInput.value = '420';
+        sliderInput.value = '420';
+        optDDInput.value = '22.5';
+        optDDText.innerText = 'Typical Championship (11 dives): 21.0 - 25.0';
+      }
+
+      onProfileChange();
+    }
+
+    // Profile & Score Input Synced Controls
+    function syncScore(val, trigger) {
+      const score = parseFloat(val);
+      if (isNaN(score)) return;
+
+      if (trigger === 'slider') {
+        document.getElementById('diver-score-num').value = score;
+      } else {
+        document.getElementById('diver-score-slider').value = score;
+      }
+      onProfileChange();
+    }
+
+    // Setup profiles and run analysis
+    function onProfileChange() {
+      // Calculate average judge score execution
+      let score = parseFloat(document.getElementById('diver-score-num').value) || 0;
+      const dd = parseFloat(document.getElementById('diver-dd').value) || 1;
+      const isUserCombined = document.getElementById('score-is-combined').checked;
+
+      // Normalize user score down if they flagged it as a dual-round cumulative sum
+      if (isUserCombined) {
+        score = score / 2;
+      }
+      
+      const avgJudgeScore = score / (3 * dd);
+      const textRating = getJudgeQualityLabel(avgJudgeScore);
+      
+      document.getElementById('execution-rating').innerText = `Avg Judge: ${avgJudgeScore.toFixed(2)} (${textRating})`;
+      document.getElementById('stat-avg-execution').innerText = avgJudgeScore.toFixed(2);
+
+      runAnalytics();
+    }
+
+    function getJudgeQualityLabel(score) {
+      if (score >= 8.5) return 'Excellent';
+      if (score >= 7.0) return 'Very Good';
+      if (score >= 5.5) return 'Satisfactory';
+      if (score >= 4.0) return 'Deficient';
+      return 'Poor';
+    }
+
+    // UI Updates
+    function updateAcademicUI() {
+      const gpa = parseFloat(document.getElementById('academic-gpa').value);
+      document.getElementById('gpa-val').innerText = gpa.toFixed(2);
+      runAnalytics();
+    }
+
+    function setDivisionFilter(div) {
+      currentDivisionFilter = div;
+      ['all', 'd1', 'd3'].forEach(d => {
+        const btn = document.getElementById(`div-btn-${d}`);
+        if (d === div.toLowerCase()) {
+          btn.className = 'bg-brand-500 text-slate-950 font-bold px-2 py-1.5 rounded-lg text-xs transition';
+        } else {
+          btn.className = 'bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-1.5 rounded-lg text-xs transition';
+        }
+      });
+      runAnalytics();
+    }
+
+    function setMatchFilter(filter) {
+      currentMatchFilter = filter;
+      const btnBoth = document.getElementById('toggle-filter-both');
+      const btnAll = document.getElementById('toggle-filter-all');
+      
+      if (filter === 'both') {
+        btnBoth.className = 'px-3 py-1 rounded-md font-semibold bg-brand-500 text-slate-950 transition';
+        btnAll.className = 'px-3 py-1 rounded-md font-semibold text-slate-400 hover:text-white transition';
+      } else {
+        btnAll.className = 'px-3 py-1 rounded-md font-semibold bg-brand-500 text-slate-950 transition';
+        btnBoth.className = 'px-3 py-1 rounded-md font-semibold text-slate-400 hover:text-white transition';
+      }
+      runAnalytics();
+    }
+
+    function buildInitialAnalysis() {
+      onBoardChange();
+    }
+
+    function runAnalytics() {
+      if (divingPerformances.length === 0) return;
+
+      const userBoard = document.getElementById('diver-board').value;
+      const userDives = parseInt(document.getElementById('diver-dives').value);
+      let userScore = parseFloat(document.getElementById('diver-score-num').value) || 0;
+      const userDD = parseFloat(document.getElementById('diver-dd').value) || 1;
+      const isUserCombined = document.getElementById('score-is-combined').checked;
+
+      // Handle dual-round user input normalization
+      if (isUserCombined) {
+        userScore = userScore / 2;
+      }
+      
+      // Filtered Performances by Board & Dives
+      const filteredPerformances = divingPerformances.filter(p => p.board === userBoard && p.dives === userDives);
+      
+      // Update Table count badge
+      document.getElementById('table-board-count').innerText = `${userBoard} • ${userDives} Dives`;
+
+      // Group by Conference
+      const conferenceMap = {};
+      filteredPerformances.forEach(p => {
+        if (!p.conference) return;
+        if (!conferenceMap[p.conference]) {
+          conferenceMap[p.conference] = {
+            name: p.conference,
+            division: p.division,
+            scores: [],
+            dds: []
+          };
+        }
+        conferenceMap[p.conference].scores.push(p.score);
+        conferenceMap[p.conference].dds.push(p.dd);
+      });
+
+      // Calculate stats per conference
+      const sortedConferences = [];
+      for (const confName in conferenceMap) {
+        const conf = conferenceMap[confName];
+        if (currentDivisionFilter !== 'All' && conf.division !== currentDivisionFilter) {
+          continue;
+        }
+
+        // Calculations
+        conf.scores.sort((a, b) => a - b);
+        const maxScore = conf.scores[conf.scores.length - 1] || 0;
+        const minScore = conf.scores[0] || 0;
+        
+        // Median
+        const mid = Math.floor(conf.scores.length / 2);
+        const medianScore = conf.scores.length % 2 !== 0 ? conf.scores[mid] : (conf.scores[mid - 1] + conf.scores[mid]) / 2;
+        
+        // Average DD
+        const avgDD = conf.dds.reduce((acc, curr) => acc + (isNaN(curr) ? 0 : curr), 0) / conf.dds.length;
+
+        // Calculate user percentile within this conference
+        let lesserCount = 0;
+        conf.scores.forEach(s => {
+          if (s < userScore) lesserCount++;
+        });
+        const percentile = conf.scores.length > 0 ? Math.round((lesserCount / conf.scores.length) * 100) : 0;
+
+        sortedConferences.push({
+          name: conf.name,
+          division: conf.division,
+          maxScore,
+          medianScore,
+          avgDD: isNaN(avgDD) ? 0 : avgDD,
+          percentile,
+          sampleCount: conf.scores.length
+        });
+      }
+
+      // Sort by percentile descending
+      sortedConferences.sort((a, b) => b.percentile - a.percentile);
+
+      // Populate Conference Table
+      const tbody = document.getElementById('conference-table-body');
+      tbody.innerHTML = '';
+      
+      if (sortedConferences.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="py-4 text-center text-slate-500">No conference results on file for ${userBoard} (${userDives} dives).</td></tr>`;
+      } else {
+        sortedConferences.forEach(c => {
+          let fitBadge = '';
+          if (c.percentile >= 85) {
+            fitBadge = '<span class="bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-2 py-0.5 rounded-full font-bold">Elite (Podium)</span>';
+          } else if (c.percentile >= 65) {
+            fitBadge = '<span class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full font-bold">A-Finalist</span>';
+          } else if (c.percentile >= 40) {
+            fitBadge = '<span class="bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded-full font-bold">B-Finalist</span>';
+          } else {
+            fitBadge = '<span class="bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full">Roster Depth</span>';
+          }
+
+          const tr = document.createElement('tr');
+          tr.className = 'hover:bg-slate-900/50 transition cursor-pointer';
+          tr.onclick = () => showConferenceDetails(c.name);
+          tr.innerHTML = `
+            <td class="py-3 pr-2 font-semibold text-white truncate max-w-[150px] hover:text-brand-400 transition">${c.name}</td>
+            <td class="py-3 px-2 text-slate-400 font-bold">${c.division}</td>
+            <td class="py-3 px-2 text-right text-slate-300 font-semibold">${c.maxScore.toFixed(1)}</td>
+            <td class="py-3 px-2 text-right text-slate-300 font-semibold">${c.medianScore.toFixed(1)}</td>
+            <td class="py-3 px-2 text-right text-slate-400">${c.avgDD.toFixed(1)}</td>
+            <td class="py-3 px-2 text-right text-brand-400 font-extrabold text-sm">${c.percentile}%</td>
+            <td class="py-3 pl-3 text-center">${fitBadge}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+
+      // Identify Top Conference Fit & Best Division Fit
+      if (sortedConferences.length > 0) {
+        document.getElementById('stat-top-conference').innerText = sortedConferences[0].name;
+        
+        // Division fits logic
+        const d1Fits = sortedConferences.filter(c => c.division === 'D1' && c.percentile >= 40);
+        const d3Fits = sortedConferences.filter(c => c.division === 'D3' && c.percentile >= 40);
+        
+        if (d1Fits.length > d3Fits.length && d1Fits.length > 0) {
+          document.getElementById('stat-best-fit-div').innerText = 'Division 1';
+          document.getElementById('stat-best-fit-div').className = 'text-lg font-black text-brand-400 mt-1';
+        } else if (d3Fits.length > 0) {
+          document.getElementById('stat-best-fit-div').innerText = 'Division 3';
+          document.getElementById('stat-best-fit-div').className = 'text-lg font-black text-emerald-400 mt-1';
+        } else {
+          document.getElementById('stat-best-fit-div').innerText = 'Developing (All)';
+          document.getElementById('stat-best-fit-div').className = 'text-lg font-black text-amber-400 mt-1';
+        }
+      } else {
+        document.getElementById('stat-top-conference').innerText = '-';
+        document.getElementById('stat-best-fit-div').innerText = '-';
+      }
+
+      // Group University Matches (Integrating Academic Data)
+      const schoolStats = {};
+      filteredPerformances.forEach(p => {
+        if (!p.university) return;
+        if (!schoolStats[p.university]) {
+          schoolStats[p.university] = {
+            scores: [],
+            dds: [],
+            divers: new Set(), // Store unique diver names to prevent double counting
+            division: p.division,
+            conference: p.conference
+          };
+        }
+        schoolStats[p.university].scores.push(p.score);
+        schoolStats[p.university].dds.push(p.dd);
+        schoolStats[p.university].divers.add(p.diver.trim().toLowerCase());
+      });
+
+      const matchedSchools = [];
+      for (const uniName in schoolStats) {
+        const stats = schoolStats[uniName];
+        
+        // Find academic data
+        const academic = universityInfo.find(u => {
+          const uNorm = u.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+          const searchNorm = uniName.toLowerCase().replace(/[^a-z0-9]/g, '');
+          return uNorm === searchNorm || uNorm.includes(searchNorm) || searchNorm.includes(uNorm);
+        });
+
+        // Filter by athletic division
+        if (currentDivisionFilter !== 'All' && stats.division !== currentDivisionFilter) {
+          continue;
+        }
+
+        // Calculate school athletic fit percentile
+        stats.scores.sort((a, b) => a - b);
+        let schoolLesser = 0;
+        stats.scores.forEach(s => {
+          if (s < userScore) schoolLesser++;
+        });
+        const schoolPercentile = stats.scores.length > 0 ? Math.round((schoolLesser / stats.scores.length) * 100) : 0;
+        const schoolAvgDD = stats.dds.reduce((acc, curr) => acc + (isNaN(curr) ? 0 : curr), 0) / stats.dds.length;
+
+        // Verify Academic Match Filters
+        let academicMatches = true;
+        let reasons = [];
+
+        if (academic) {
+          const userGPA = parseFloat(document.getElementById('academic-gpa').value);
+          const userSAT = parseFloat(document.getElementById('academic-sat').value) || null;
+          const userACT = parseFloat(document.getElementById('academic-act').value) || null;
+          const requiresAbet = document.getElementById('academic-abet').checked;
+          const requiresTuition = document.getElementById('academic-tuition').checked;
+
+          if (academic.gpa && userGPA < (academic.gpa - 0.3)) {
+            academicMatches = false;
+            reasons.push('GPA difference too high');
+          }
+          if (requiresAbet && !academic.abet) {
+            academicMatches = false;
+            reasons.push('No ABET Engineering');
+          }
+          if (requiresTuition && !academic.tuitionExchange) {
+            academicMatches = false;
+            reasons.push('Not Tuition Exchange');
+          }
+          if (userSAT && academic.sat && userSAT < (academic.sat - 150)) {
+            academicMatches = false;
+            reasons.push('SAT target too high');
+          }
+          if (userACT && academic.act && userACT < (academic.act - 4)) {
+            academicMatches = false;
+            reasons.push('ACT target too high');
+          }
+        } else if (requiresAbet || requiresTuition || userSAT || userACT) {
+          academicMatches = false;
+          reasons.push('Academic profile missing');
+        }
+
+        const isAthleticFit = schoolPercentile >= 30; // Threshold of being at least roster depth
+
+        matchedSchools.push({
+          name: uniName,
+          stats,
+          academic,
+          academicMatches,
+          isAthleticFit,
+          schoolPercentile,
+          reasons,
+          avgDD: isNaN(schoolAvgDD) ? 0 : schoolAvgDD,
+          rosterSize: stats.divers.size // Accurate roster size count without duplicates
+        });
+      }
+
+      // Filter based on "Academic & Athletic" toggle or "Athletic Only"
+      let finalMatchedSchools = [];
+      if (currentMatchFilter === 'both') {
+        finalMatchedSchools = matchedSchools.filter(m => m.academicMatches && m.isAthleticFit);
+      } else {
+        finalMatchedSchools = matchedSchools.filter(m => m.isAthleticFit);
+      }
+
+      // Sort by School Percentile descending
+      finalMatchedSchools.sort((a, b) => b.schoolPercentile - a.schoolPercentile);
+
+      document.getElementById('stat-matched-count').innerText = `${finalMatchedSchools.length} / ${matchedSchools.length}`;
+
+      // Populate School Cards Grid
+      const grid = document.getElementById('school-match-grid');
+      const emptyState = document.getElementById('school-empty-state');
+      grid.innerHTML = '';
+
+      if (finalMatchedSchools.length === 0) {
+        emptyState.classList.remove('hidden');
+      } else {
+        emptyState.classList.add('hidden');
+        finalMatchedSchools.forEach(m => {
+          const card = document.createElement('div');
+          card.className = 'bg-slate-900 border border-slate-800 hover:border-brand-500/40 p-5 rounded-2xl flex flex-col justify-between space-y-4 hover:shadow-xl hover:shadow-brand-500/5 transition cursor-pointer';
+          card.onclick = () => openUniModal(m);
+
+          // Roster fit styling
+          let rankBadge = '';
+          if (m.schoolPercentile >= 80) {
+            rankBadge = '<span class="bg-indigo-500/10 text-indigo-400 text-[10px] px-2 py-0.5 rounded-full font-bold">Roster Ace (Top 20%)</span>';
+          } else if (m.schoolPercentile >= 50) {
+            rankBadge = '<span class="bg-emerald-500/10 text-emerald-400 text-[10px] px-2 py-0.5 rounded-full font-bold">Key Contributor</span>';
+          } else {
+            rankBadge = '<span class="bg-amber-500/10 text-amber-400 text-[10px] px-2 py-0.5 rounded-full font-bold">Roster Depth</span>';
+          }
+
+          // Academic Match Badge
+          const acadBadge = m.academicMatches 
+            ? '<span class="bg-emerald-500/10 text-emerald-400 text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1"><i data-lucide="check-circle-2" class="w-3 h-3"></i> Academic Match</span>'
+            : '<span class="bg-rose-500/10 text-rose-400 text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1"><i data-lucide="x-circle" class="w-3 h-3"></i> Strict Academics</span>';
+
+          const bestScore = m.stats.scores[m.stats.scores.length - 1];
+          const medianScore = m.stats.scores[Math.floor(m.stats.scores.length / 2)];
+          const schoolAvgDDVal = m.avgDD;
+
+          card.innerHTML = `
+            <div class="space-y-2">
+              <div class="flex items-start justify-between gap-1">
+                <span class="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded font-bold uppercase">${m.stats.division}</span>
+                <div class="flex items-center gap-1.5">${rankBadge}</div>
+              </div>
+              <h4 class="text-white font-extrabold text-base tracking-tight leading-snug line-clamp-1">${m.name}</h4>
+              <p class="text-xs text-brand-400 font-semibold truncate">${m.stats.conference}</p>
+            </div>
+
+            <div class="grid grid-cols-3 gap-2 text-[11px] border-t border-b border-slate-800/60 py-2.5 text-center">
+              <div class="text-left">
+                <span class="text-slate-500 block text-[10px]">Roster High:</span>
+                <span class="text-slate-300 font-bold">${bestScore.toFixed(1)}</span>
+              </div>
+              <div>
+                <span class="text-slate-500 block text-[10px]">Median:</span>
+                <span class="text-slate-300 font-bold">${medianScore.toFixed(1)}</span>
+              </div>
+              <div class="text-right">
+                <span class="text-slate-500 block text-[10px]">Avg DD:</span>
+                <span class="text-brand-400 font-bold">${schoolAvgDDVal.toFixed(1)}</span>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between text-[11px]">
+              <div class="flex items-center gap-1">
+                <i data-lucide="award" class="w-3.5 h-3.5 text-brand-400"></i>
+                <span class="text-slate-400">Rank: <strong class="text-white font-extrabold">${m.schoolPercentile}%</strong></span>
+              </div>
+              ${m.academic ? acadBadge : '<span class="text-slate-500 italic text-[10px]">No Academic Profile</span>'}
+            </div>
+          `;
+          grid.appendChild(card);
+        });
+        lucide.createIcons();
+      }
+
+      // Quadrant Chart render
+      renderQuadrantPlot(filteredPerformances, userScore, userDD);
+
+      // Run Optimizer calculation
+      runOptimizer();
+    }
+
+    // Quadrant Render Engine (Scatter plot of Difficulty vs Judge score execution)
+    function renderQuadrantPlot(allData, userScore, userDD) {
+      const ctx = document.getElementById('quadrant-chart').getContext('2d');
+      
+      if (activeChartInstance) {
+        activeChartInstance.destroy();
+      }
+
+      const sampleLimit = 200;
+      const sampledData = allData
+        .filter(p => !isNaN(p.dd) && p.dd > 4 && p.score > 40)
+        .slice(0, sampleLimit);
+
+      const datasetPoints = sampledData.map(p => ({
+        x: p.dd,
+        y: p.score / (3 * p.dd),
+        label: `${p.diver} (${p.team})`
+      }));
+
+      const userPoint = {
+        x: userDD,
+        y: userScore / (3 * userDD)
+      };
+
+      activeChartInstance = new Chart(ctx, {
+        type: 'scatter',
+        data: {
+          datasets: [
+            {
+              label: 'Your Position',
+              data: [userPoint],
+              backgroundColor: '#38bdf8',
+              borderColor: '#ffffff',
+              borderWidth: 2.5,
+              pointRadius: 9,
+              pointHoverRadius: 11,
+              zIndex: 10
+            },
+            {
+              label: 'Collegiate Divers',
+              data: datasetPoints,
+              backgroundColor: 'rgba(71, 85, 105, 0.5)',
+              pointRadius: 4.5,
+              zIndex: 1
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              display: false
+            },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  if (context.datasetIndex === 0) {
+                    return `You: DD ${context.raw.x.toFixed(1)}, Avg Judge Score ${context.raw.y.toFixed(2)}`;
+                  }
+                  const originalPoint = datasetPoints[context.dataIndex];
+                  return `${originalPoint.label}: DD ${context.raw.x.toFixed(1)}, Avg Judge ${context.raw.y.toFixed(2)}`;
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              title: {
+                display: true,
+                text: 'List Difficulty (Total DD)',
+                color: '#94a3b8',
+                font: { size: 10, weight: 'bold' }
+              },
+              grid: { color: '#1e293b' },
+              ticks: { color: '#64748b' }
+            },
+            y: {
+              title: {
+                display: true,
+                text: 'Avg Judge Score (0-10)',
+                color: '#94a3b8',
+                font: { size: 10, weight: 'bold' }
+              },
+              grid: { color: '#1e293b' },
+              ticks: { color: '#64748b' }
+            }
+          }
+        }
+      });
+    }
+
+    // Interactive Score simulator and optimizer
+    function runOptimizer() {
+      const optDD = parseFloat(document.getElementById('opt-dd').value);
+      const optJudge = parseFloat(document.getElementById('opt-judge').value);
+      
+      document.getElementById('target-dd-val').innerText = optDD.toFixed(1);
+      document.getElementById('target-judge-val').innerText = optJudge.toFixed(1);
+
+      const estScore = optJudge * 3 * optDD;
+      document.getElementById('opt-result-score').innerText = estScore.toFixed(1);
+
+      const userBoard = document.getElementById('diver-board').value;
+      const userDives = parseInt(document.getElementById('diver-dives').value);
+      const filteredPerformances = divingPerformances.filter(p => p.board === userBoard && p.dives === userDives);
+
+      if (filteredPerformances.length > 0) {
+        let lesserCount = 0;
+        filteredPerformances.forEach(p => {
+          if (p.score < estScore) lesserCount++;
+        });
+        const estPct = Math.round((lesserCount / filteredPerformances.length) * 100);
+        document.getElementById('opt-result-percentile').innerText = `${estPct}%`;
+      } else {
+        document.getElementById('opt-result-percentile').innerText = '-%';
+      }
+    }
+
+    // Interactive Conference Details Modal (Double Counting Prevented Here)
+    function showConferenceDetails(confName) {
+      lastOpenedConference = confName; // Save for back tracking
+      const userBoard = document.getElementById('diver-board').value;
+      const userDives = parseInt(document.getElementById('diver-dives').value);
+      let userScore = parseFloat(document.getElementById('diver-score-num').value) || 0;
+      const isUserCombined = document.getElementById('score-is-combined').checked;
+
+      if (isUserCombined) {
+        userScore = userScore / 2;
+      }
+      
+      const confPerformances = divingPerformances.filter(p => p.conference === confName && p.board === userBoard && p.dives === userDives);
+      
+      if (confPerformances.length === 0) return;
+
+      const confDivision = confPerformances[0].division;
+
+      // Group by School
+      const schoolPerformances = {};
+      confPerformances.forEach(p => {
+        if (!p.university) return;
+        if (!schoolPerformances[p.university]) {
+          schoolPerformances[p.university] = [];
+        }
+        schoolPerformances[p.university].push(p);
+      });
+
+      // Aggregate global metrics for this conference
+      const allScores = confPerformances.map(p => p.score).sort((a,b) => a-b);
+      const maxScore = allScores[allScores.length - 1];
+      const midIdx = Math.floor(allScores.length / 2);
+      const medianScore = allScores.length % 2 !== 0 ? allScores[midIdx] : (allScores[midIdx-1] + allScores[midIdx]) / 2;
+
+      let lesserCount = 0;
+      allScores.forEach(s => { if (s < userScore) lesserCount++; });
+      const overallPercentile = Math.round((lesserCount / allScores.length) * 100);
+
+      // Populate elements
+      document.getElementById('conf-modal-title').innerText = confName;
+      document.getElementById('conf-modal-subtitle').innerText = `${confDivision} • ${Object.keys(schoolPerformances).length} Universities Found`;
+      document.getElementById('conf-modal-user-rank').innerText = `${overallPercentile}%`;
+      document.getElementById('conf-modal-max-score').innerText = maxScore.toFixed(1);
+      document.getElementById('conf-modal-med-score').innerText = medianScore.toFixed(1);
+
+      // Render School List inside the Conference Modal
+      const schoolListContainer = document.getElementById('conf-modal-schools-list');
+      schoolListContainer.innerHTML = '';
+
+      // Create structured items
+      const finalSchoolsList = [];
+      for (const schoolName in schoolPerformances) {
+        const list = schoolPerformances[schoolName];
+        const scores = list.map(p => p.score).sort((a,b) => a-b);
+        const bestScore = scores[scores.length - 1];
+        const medVal = scores[Math.floor(scores.length / 2)];
+        const avgDD = list.reduce((acc, c) => acc + c.dd, 0) / list.length;
+
+        // Calculate unique diver roster size to avoid double counting
+        const uniqueDivers = new Set(list.map(p => p.diver.trim().toLowerCase()));
+        const rosterSize = uniqueDivers.size;
+
+        // Check academic match
+        const academic = universityInfo.find(u => {
+          const uNorm = u.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+          const searchNorm = schoolName.toLowerCase().replace(/[^a-z0-9]/g, '');
+          return uNorm === searchNorm || uNorm.includes(searchNorm) || searchNorm.includes(uNorm);
+        });
+
+        // Determine Match Status
+        let isAcademicMatch = true;
+        if (academic) {
+          const userGPA = parseFloat(document.getElementById('academic-gpa').value);
+          if (userGPA < (academic.gpa - 0.3)) isAcademicMatch = false;
+        }
+
+        finalSchoolsList.push({
+          name: schoolName,
+          scores,
+          bestScore,
+          medVal,
+          avgDD,
+          rosterSize, // Safe, unique count of athletes
+          academic,
+          isAcademicMatch
+        });
+      }
+
+      // Sort schools by their median performance
+      finalSchoolsList.sort((a, b) => b.medVal - a.medVal);
+
+      finalSchoolsList.forEach(school => {
+        const item = document.createElement('div');
+        item.className = 'bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-brand-500/30 transition flex flex-col sm:flex-row sm:items-center justify-between gap-4';
+        
+        let academicStatusBadge = '';
+        if (school.academic) {
+          academicStatusBadge = school.isAcademicMatch 
+            ? '<span class="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full font-bold">Academic Match</span>'
+            : '<span class="text-[10px] bg-rose-500/10 text-rose-400 border border-rose-500/20 px-2 py-0.5 rounded-full font-bold">Strict Academics</span>';
+        } else {
+          academicStatusBadge = '<span class="text-[10px] bg-slate-900 text-slate-500 px-2 py-0.5 rounded-full">No Academic Data</span>';
+        }
+
+        // Action structure to pass school data to normal drill-down modal
+        const viewActionData = JSON.stringify({
+          name: school.name,
+          stats: {
+            scores: school.scores,
+            division: confDivision,
+            conference: confName
+          },
+          academic: school.academic,
+          academicMatches: school.isAcademicMatch,
+          schoolPercentile: Math.round((school.scores.filter(s => s < userScore).length / school.scores.length) * 100),
+          avgDD: school.avgDD,
+          rosterSize: school.rosterSize
+        }).replace(/"/g, '&quot;');
+
+        item.innerHTML = `
+          <div class="space-y-1">
+            <div class="flex items-center gap-2">
+              <h6 class="text-white font-extrabold text-sm">${school.name}</h6>
+              ${academicStatusBadge}
+            </div>
+            <div class="flex items-center gap-3 text-[11px] text-slate-400">
+              <span>Roster Size: <strong class="text-slate-200">${school.rosterSize}</strong></span>
+              <span>Roster High: <strong class="text-slate-200">${school.bestScore.toFixed(1)}</strong></span>
+              <span>Avg DD: <strong class="text-brand-400 font-bold">${school.avgDD.toFixed(1)}</strong></span>
+            </div>
+          </div>
+          <button onclick="drillDownFromConf('${viewActionData}')" class="shrink-0 bg-brand-500 hover:bg-brand-400 text-slate-950 font-bold px-3 py-1.5 rounded-lg text-xs transition flex items-center gap-1.5 self-start sm:self-center">
+            View Recruits & Info <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+          </button>
+        `;
+        schoolListContainer.appendChild(item);
+      });
+
+      document.getElementById('modal-conference-details').classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function closeConfModal() {
+      document.getElementById('modal-conference-details').classList.add('hidden');
+    }
+
+    // Handles bridging drill-down from within the conference roster view
+    function drillDownFromConf(matchDataString) {
+      const matchObj = JSON.parse(matchDataString);
+      // Close Conference View
+      closeConfModal();
+      // Show back button on the uni details view
+      document.getElementById('modal-back-btn').classList.remove('hidden');
+      openUniModal(matchObj);
+    }
+
+    function backToConference() {
+      closeUniModal();
+      if (lastOpenedConference) {
+        showConferenceDetails(lastOpenedConference);
+      }
+    }
+
+    // Modal Details Engine for single schools
+    function openUniModal(matchItem) {
+      const modal = document.getElementById('modal-uni-details');
+      
+      document.getElementById('modal-title').innerText = matchItem.name;
+      document.getElementById('modal-conference').innerText = `${matchItem.stats.division} • ${matchItem.stats.conference}`;
+      document.getElementById('modal-ath-div').innerText = `Athletic Division: ${matchItem.stats.division}`;
+      
+      const best = matchItem.stats.scores[matchItem.stats.scores.length - 1];
+      const median = matchItem.stats.scores[Math.floor(matchItem.stats.scores.length / 2)];
+      const avgDDVal = matchItem.avgDD || (matchItem.stats.dds ? (matchItem.stats.dds.reduce((acc, curr) => acc + (isNaN(curr) ? 0 : curr), 0) / matchItem.stats.dds.length) : 0);
+      const rosterSizeVal = matchItem.rosterSize || 1;
+      
+      document.getElementById('modal-ath-stats').innerText = `Roster Size: ${rosterSizeVal} | Range: ${median.toFixed(1)} - ${best.toFixed(1)} | Avg DD: ${avgDDVal.toFixed(1)}`;
+
+      // Academic fields
+      if (matchItem.academic) {
+        document.getElementById('modal-gpa').innerText = `Average GPA: ${matchItem.academic.gpa.toFixed(2)}`;
+        
+        const satStr = matchItem.academic.sat ? `SAT: ${matchItem.academic.sat}` : 'SAT: Not reported';
+        const actStr = matchItem.academic.act ? `ACT: ${matchItem.academic.act}` : 'ACT: Not reported';
+        document.getElementById('modal-sat-act').innerText = `${satStr} • ${actStr}`;
+
+        document.getElementById('modal-abet').innerText = matchItem.academic.abet ? 'Yes ✔' : 'No';
+        document.getElementById('modal-abet').className = matchItem.academic.abet ? 'font-bold text-emerald-400' : 'font-bold text-slate-400';
+
+        document.getElementById('modal-tuition').innerText = matchItem.academic.tuitionExchange ? 'Yes ✔' : 'No';
+        document.getElementById('modal-tuition').className = matchItem.academic.tuitionExchange ? 'font-bold text-emerald-400' : 'font-bold text-slate-400';
+
+        const webLink = document.getElementById('modal-web');
+        const formattedUrl = matchItem.academic.web.startsWith('http') ? matchItem.academic.web : `https://${matchItem.academic.web}`;
+        webLink.href = formattedUrl;
+        webLink.innerText = matchItem.academic.web;
+      } else {
+        document.getElementById('modal-gpa').innerText = 'No academic details on file';
+        document.getElementById('modal-sat-act').innerText = '-';
+        document.getElementById('modal-abet').innerText = 'No Data';
+        document.getElementById('modal-tuition').innerText = 'No Data';
+        document.getElementById('modal-web').innerText = 'No Data';
+      }
+
+      // Fit statement
+      let explanation = '';
+      if (matchItem.schoolPercentile >= 80) {
+        explanation = `You would instantly become an elite diver at ${matchItem.name}. Your scoring potential stands at the very top of their roster!`;
+      } else if (matchItem.schoolPercentile >= 50) {
+        explanation = `You fit perfectly with ${matchItem.name}'s active squad. You can reliably expect to score points and be a solid mid-roster contributor immediately.`;
+      } else {
+        explanation = `You are within competing distance at ${matchItem.name}. While you'll benefit from increasing your DD or polishing execution, your scores represent viable roster depth.`;
+      }
+
+      if (matchItem.academic && !matchItem.academicMatches) {
+        explanation += ` However, double-check your academic scores as this institution has high typical standards.`;
+      }
+
+      document.getElementById('modal-fit-explanation').innerText = explanation;
+      modal.classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function closeUniModal() {
+      document.getElementById('modal-uni-details').classList.add('hidden');
+      document.getElementById('modal-back-btn').classList.add('hidden'); // Reset state
+    }
+  </script>
+</body>
+</html>
