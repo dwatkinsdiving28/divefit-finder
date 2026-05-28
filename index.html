@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>DiveFit Finder - Women's Collegiate Diving Analytics</title>
   
+  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -31,14 +32,18 @@
     }
   </script>
 
+  <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght=300;400;500;600;700;800&display=swap" rel="stylesheet">
 
+  <!-- PapaParse for CSV Parsing -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 
+  <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
+  <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
 
   <style>
@@ -64,9 +69,11 @@
 </head>
 <body class="h-full flex flex-col overflow-hidden text-slate-100 bg-slate-950">
 
+  <!-- TOP BAR / HEADER -->
   <header class="border-b border-slate-800 bg-slate-900 px-6 py-4 flex items-center justify-between shrink-0">
     <div class="flex items-center gap-3">
       <div class="bg-brand-500 text-slate-950 p-2.5 rounded-xl shadow-lg shadow-brand-500/20 flex items-center justify-center">
+        <!-- Custom Diving Icon -->
         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <path d="M2 12h20" />
           <path d="M20 12c0-4.4-3.6-8-8-8S4 7.6 4 12" />
@@ -84,6 +91,7 @@
       </div>
     </div>
 
+    <!-- Data Load Badges -->
     <div class="flex items-center gap-3">
       <div id="normalization-indicator" class="hidden lg:flex items-center gap-1.5 bg-indigo-950/40 text-indigo-400 border border-indigo-500/20 px-3 py-1.5 rounded-lg text-xs font-semibold">
         <i data-lucide="shield-check" class="w-4 h-4 text-indigo-400"></i>
@@ -96,6 +104,10 @@
         </div>
         <div class="flex items-center gap-1.5 border-l border-slate-800 pl-4">
           <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span><strong id="stat-divers" class="text-white">0</strong> Divers</span>
+        </div>
+        <div class="flex items-center gap-1.5 border-l border-slate-800 pl-4">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
           <span><strong id="stat-colleges" class="text-white">0</strong> Colleges</span>
         </div>
       </div>
@@ -105,8 +117,10 @@
     </div>
   </header>
 
+  <!-- MAIN CONTAINER (SPLIT LAYOUT) -->
   <main class="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
 
+    <!-- DATA LOADING OVERLAY -->
     <div id="loading-overlay" class="absolute inset-0 bg-slate-950/95 z-50 flex flex-col items-center justify-center p-6 text-center overflow-y-auto">
       <div class="max-w-2xl w-full bg-slate-900 border border-slate-800 p-8 rounded-2xl shadow-2xl space-y-8">
         <div class="space-y-3">
@@ -119,6 +133,7 @@
           </p>
         </div>
 
+        <!-- Progress Indicator -->
         <div id="auto-load-status" class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2 text-left">
           <div class="flex items-center justify-between text-xs">
             <span class="font-medium text-slate-400">Workspace Auto-Scan Status</span>
@@ -139,7 +154,9 @@
           </div>
         </div>
 
+        <!-- Manual File Drops -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Diving Performances File -->
           <div class="border-2 border-dashed border-slate-800 hover:border-brand-500/50 bg-slate-950/50 p-5 rounded-xl transition cursor-pointer relative" id="drop-zone-diving">
             <input type="file" id="file-diving" class="absolute inset-0 opacity-0 cursor-pointer" accept=".csv" onchange="handleManualFile(this, 'diving')">
             <div class="space-y-2 text-center pointer-events-none">
@@ -152,6 +169,7 @@
             </div>
           </div>
 
+          <!-- University Info File -->
           <div class="border-2 border-dashed border-slate-800 hover:border-brand-500/50 bg-slate-950/50 p-5 rounded-xl transition cursor-pointer relative" id="drop-zone-uni">
             <input type="file" id="file-uni" class="absolute inset-0 opacity-0 cursor-pointer" accept=".csv" onchange="handleManualFile(this, 'uni')">
             <div class="space-y-2 text-center pointer-events-none">
@@ -173,8 +191,10 @@
       </div>
     </div>
 
+    <!-- LEFT BAR: MULTI-BOARD PROFILES & FILTERS -->
     <section class="w-full lg:w-[440px] bg-slate-900 border-r border-slate-800 flex flex-col shrink-0 overflow-y-auto">
       
+      <!-- Diver Profile Panel -->
       <div class="p-5 border-b border-slate-800 space-y-4">
         <div class="flex items-center justify-between">
           <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
@@ -188,6 +208,7 @@
           <input type="text" id="diver-name" value="Recruit Prospect" placeholder="Enter name..." class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-brand-500">
         </div>
 
+        <!-- Tabbed Board Input Selector -->
         <div class="border border-slate-800 bg-slate-950 p-3 rounded-xl space-y-3">
           <div class="flex justify-between items-center">
             <span class="text-xs font-bold text-slate-400">Configure Boards</span>
@@ -200,7 +221,9 @@
             <button onclick="switchBoardTab('platform')" id="tab-btn-platform" class="px-2 py-1.5 rounded-md text-xs font-bold text-slate-400 hover:text-white transition">Platform</button>
           </div>
 
+          <!-- Board Specific Controls Container -->
           <div class="space-y-4 pt-1">
+            <!-- 1m Tab Panel -->
             <div id="tab-panel-1m" class="space-y-3">
               <div class="flex items-center justify-between">
                 <label class="relative flex items-center gap-2 cursor-pointer">
@@ -240,6 +263,7 @@
               </div>
             </div>
 
+            <!-- 3m Tab Panel (Initially Hidden) -->
             <div id="tab-panel-3m" class="space-y-3 hidden">
               <div class="flex items-center justify-between">
                 <label class="relative flex items-center gap-2 cursor-pointer">
@@ -279,6 +303,7 @@
               </div>
             </div>
 
+            <!-- Platform Tab Panel (Initially Hidden) -->
             <div id="tab-panel-platform" class="space-y-3 hidden">
               <div class="flex items-center justify-between">
                 <label class="relative flex items-center gap-2 cursor-pointer">
@@ -323,12 +348,14 @@
         </div>
       </div>
 
+      <!-- Academic Filters Panel -->
       <div class="p-5 border-b border-slate-800 space-y-4">
         <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
           <i data-lucide="graduation-cap" class="w-4 h-4 text-emerald-400"></i> Academic Profile
         </h2>
 
         <div class="space-y-4">
+          <!-- GPA slider -->
           <div>
             <div class="flex justify-between text-xs mb-1">
               <span class="text-slate-400">GPA</span>
@@ -348,6 +375,7 @@
             </div>
           </div>
 
+          <!-- Boolean toggles -->
           <div class="space-y-2 pt-1 border-t border-slate-800/50">
             <label class="relative flex items-center gap-2.5 cursor-pointer py-1">
               <input type="checkbox" id="academic-abet" onchange="updateAcademicUI()" class="sr-only peer">
@@ -364,6 +392,7 @@
         </div>
       </div>
 
+      <!-- Quick filters -->
       <div class="p-5 space-y-4 flex-1">
         <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
           <i data-lucide="filter" class="w-4 h-4 text-purple-400"></i> Athletic Filter
@@ -376,8 +405,10 @@
       </div>
     </section>
 
+    <!-- RIGHT BAR: LIVE ANALYTICS DASHBOARD -->
     <section class="flex-1 flex flex-col overflow-hidden bg-slate-950">
       
+      <!-- Top Overview Metrics Strip -->
       <div class="grid grid-cols-2 md:grid-cols-4 border-b border-slate-800 bg-slate-900/50 shrink-0">
         <div class="p-4 border-r border-b md:border-b-0 border-slate-800 flex flex-col">
           <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Composite Best Fit Div</span>
@@ -401,8 +432,10 @@
         </div>
       </div>
 
+      <!-- Inner Content Scrollable Container -->
       <div class="flex-1 overflow-y-auto p-6 space-y-6">
 
+        <!-- Informational banner for score scaling -->
         <div id="normalization-alert" class="hidden bg-indigo-950/20 border border-indigo-800/80 p-4 rounded-xl flex items-start gap-3">
           <div class="p-1.5 bg-indigo-500/20 text-indigo-400 rounded-lg">
             <i data-lucide="info" class="w-5 h-5"></i>
@@ -415,8 +448,10 @@
           </div>
         </div>
 
+        <!-- First Row: Conference Fit Breakdown & Scatter Matrix -->
         <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
           
+          <!-- Conference Fit Breakdown -->
           <div class="xl:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col space-y-4">
             <div class="flex items-center justify-between">
               <div>
@@ -442,11 +477,13 @@
                   </tr>
                 </thead>
                 <tbody id="conference-table-body" class="divide-y divide-slate-800/50">
-                  </tbody>
+                  <!-- JS generated rows -->
+                </tbody>
               </table>
             </div>
           </div>
 
+          <!-- Scatter Quadrant Plot (Execution vs DD) -->
           <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col space-y-4">
             <div>
               <h3 class="font-bold text-white text-base">Performance Quadrant</h3>
@@ -463,6 +500,7 @@
 
         </div>
 
+        <!-- Second Row: Matched College Cards -->
         <div class="space-y-4">
           <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
@@ -472,11 +510,13 @@
               <p class="text-xs text-slate-400">Colleges that fit both your academic scores and competitive diving level across configured events</p>
             </div>
             <div class="flex items-center gap-3">
+              <!-- Smart Multi-board matching rule toggle -->
               <div class="flex items-center gap-1.5 bg-slate-900 p-1 rounded-lg border border-slate-800 text-[11px]">
                 <button id="rule-btn-any" onclick="setMultiBoardMatchRule('any')" class="px-2.5 py-1 rounded font-bold bg-brand-500 text-slate-950 transition">Match Any Board</button>
                 <button id="rule-btn-all" onclick="setMultiBoardMatchRule('all')" class="px-2.5 py-1 rounded font-bold text-slate-400 hover:text-white transition">Match All Active</button>
               </div>
 
+              <!-- Toggle for Academics match vs All athletic match -->
               <div class="flex items-center gap-1.5 bg-slate-900 p-1 rounded-lg border border-slate-800 text-[11px]">
                 <button id="toggle-filter-both" onclick="setMatchFilter('both')" class="px-2.5 py-1 rounded font-bold bg-brand-500 text-slate-950 transition">Academic & Athletic</button>
                 <button id="toggle-filter-all" onclick="setMatchFilter('all')" class="px-2.5 py-1 rounded font-bold text-slate-400 hover:text-white transition">Athletic Only</button>
@@ -485,7 +525,8 @@
           </div>
 
           <div id="school-match-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-            </div>
+            <!-- School Cards populated by JS -->
+          </div>
           
           <div id="school-empty-state" class="hidden text-center py-12 bg-slate-900 border border-dashed border-slate-800 rounded-2xl">
             <div class="mx-auto w-12 h-12 text-slate-500 mb-2">
@@ -496,6 +537,7 @@
           </div>
         </div>
 
+        <!-- Third Row: Reference Guide and Quick Benchmarks -->
         <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
           <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col justify-between space-y-4">
             <div>
@@ -527,6 +569,7 @@
             </div>
           </div>
 
+          <!-- Quick FAQ block -->
           <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-3 flex flex-col justify-between">
             <h3 class="font-bold text-white text-base">Analytical Index (CFI) Explanation</h3>
             <div class="space-y-2 text-xs text-slate-300 leading-relaxed">
@@ -549,6 +592,7 @@
 
   </main>
 
+  <!-- COLLAPSIBLE MODAL FOR DETAILED CONFERENCE BREAKDOWN -->
   <div id="modal-conference-details" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
     <div class="bg-slate-900 border border-slate-800 max-w-2xl w-full rounded-2xl shadow-2xl p-6 space-y-4 flex flex-col max-h-[85vh]">
       <div class="flex justify-between items-start shrink-0">
@@ -561,6 +605,7 @@
         </button>
       </div>
 
+      <!-- Quick Benchmark Stats Cards -->
       <div class="grid grid-cols-3 gap-3 text-xs shrink-0">
         <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 text-center">
           <span class="text-slate-500 block font-bold mb-1">Your CFI Fit</span>
@@ -576,14 +621,17 @@
         </div>
       </div>
 
+      <!-- List of Universities -->
       <div class="flex-1 overflow-y-auto space-y-3 pr-1">
         <h5 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Member Universities inside Conference</h5>
         <div id="conf-modal-schools-list" class="space-y-2">
-          </div>
+          <!-- Dynamically populated rows -->
+        </div>
       </div>
     </div>
   </div>
 
+  <!-- COLLAPSIBLE MODAL FOR DETAILED UNIVERSITY COMPARISON -->
   <div id="modal-uni-details" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
     <div class="bg-slate-900 border border-slate-800 max-w-xl w-full rounded-2xl shadow-2xl p-6 space-y-4">
       <div class="flex justify-between items-start">
@@ -601,6 +649,7 @@
         </div>
       </div>
 
+      <!-- Multi-board Comparison Matrix Inside Uni Modal -->
       <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3 text-xs">
         <span class="text-slate-400 font-bold block border-b border-slate-800 pb-1.5">Roster Performance Benchmarks</span>
         <div class="space-y-2">
@@ -612,11 +661,14 @@
             <span class="text-right">Your Fit</span>
           </div>
           <div id="modal-board-row-1m" class="grid grid-cols-5 py-1.5 border-b border-slate-900 items-center">
-            </div>
+            <!-- Populated via JS -->
+          </div>
           <div id="modal-board-row-3m" class="grid grid-cols-5 py-1.5 border-b border-slate-900 items-center">
-            </div>
+            <!-- Populated via JS -->
+          </div>
           <div id="modal-board-row-platform" class="grid grid-cols-5 py-1.5 items-center">
-            </div>
+            <!-- Populated via JS -->
+          </div>
         </div>
       </div>
 
@@ -662,6 +714,7 @@
     Designed for high school recruits and parents exploring college diving options. Uses parsed statistics from real 2026 collegiate meets.
   </footer>
 
+  <!-- MAIN SCRIPT CONTROLLING APP LOGIC -->
   <script>
     // Global Datasets
     let divingPerformances = [];
@@ -847,6 +900,10 @@
           }).filter(p => !isNaN(p.score) && p.board);
           
           document.getElementById('stat-performances').innerText = divingPerformances.length.toLocaleString();
+          
+          // Calculate and display unique individual divers
+          const uniqueDiversSet = new Set(divingPerformances.map(p => p.diver.toLowerCase().trim()).filter(name => name.length > 0));
+          document.getElementById('stat-divers').innerText = uniqueDiversSet.size.toLocaleString();
           
           if (detectedCombined > 0) {
             document.getElementById('normalization-indicator').classList.remove('hidden');
@@ -1306,7 +1363,7 @@
             ? '<span class="bg-emerald-500/10 text-emerald-400 text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1"><i data-lucide="check-circle-2" class="w-3 h-3"></i> Academic Match</span>'
             : '<span class="bg-rose-500/10 text-rose-400 text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1"><i data-lucide="x-circle" class="w-3 h-3"></i> Strict Academics</span>';
 
-          // DD RESTORED HERE: Injected inside the active board overview block
+          // DD snapshot rendered inside each school card
           let activeRowsHtml = '';
           Object.keys(m.scoresMatrix).forEach(b => {
             const mat = m.scoresMatrix[b];
@@ -1557,7 +1614,6 @@
           ? (school.isAcademicMatch ? '<span class="bg-emerald-500/10 text-emerald-400 text-[10px] px-2 py-0.5 rounded font-bold">Academic Match</span>' : '<span class="bg-rose-500/10 text-rose-400 text-[10px] px-2 py-0.5 rounded font-bold">Strict Academics</span>')
           : '<span class="bg-slate-900 text-slate-500 text-[10px] px-2 py-0.5 rounded">No Academic Data</span>';
 
-        // DD RESTORED HERE: Embedded inside individual board matrix row blocks inside the conference list
         let boardBreakdowns = '';
         Object.keys(school.recordsMatrix).forEach(b => {
           const details = school.recordsMatrix[b];
@@ -1667,7 +1723,7 @@
         `;
       });
 
-      // DD RESTORED HERE: Integrated dynamic innerHTML injector to write out the 5-column layout explicitly including Average DD 
+      // Populate matrix inside single school detail modals
       if (matchItem.scoresMatrix) {
         Object.keys(matchItem.scoresMatrix).forEach(b => {
           const mat = matchItem.scoresMatrix[b];
